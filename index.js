@@ -61,7 +61,7 @@ const SITE_CONFIGS = {
         }
     },
     jobins: {
-        url: 'https://jobins.jp/agent/',
+        url: 'https://jobins.jp/agent/login',
         loginUrl: 'https://jobins.jp/agent/login',
         loginSelectors: {
             user: '#email',
@@ -209,6 +209,15 @@ const performLogin = async (page, db, creds, send) => {
         }
     } catch (e) {
         send({ type: 'log', message: `${db} ログインエラー: ${e.message}`, level: 'warning' });
+    }
+};
+
+const sendScreenshot = async (page, send) => {
+    try {
+        const buf = await page.screenshot({ type: 'jpeg', quality: 30 });
+        send({ type: 'screenshot', image: `data:image/jpeg;base64,${buf.toString('base64')}` });
+    } catch (e) {
+        console.error('Screenshot error:', e.message);
     }
 };
 
@@ -408,11 +417,13 @@ app.post('/api/collect', async (req, res) => {
 
                 if (db === 'jobmiru' || db === 'jobins' || db === 'careerbank') {
                     send({ type: 'log', message: `${db} で画面を読み込んでいます...`, level: 'info' });
+                    await sendScreenshot(page, send);
 
                     const pageUrl = page.url();
                     const configUrlObj = new URL(config.url);
                     if (!pageUrl.includes(configUrlObj.hostname) || pageUrl.includes('login') || pageUrl.includes('wp-login')) {
-                        await page.goto(config.url, { waitUntil: 'load', timeout: 60000 });
+                        const waitOptions = db === 'jobins' ? { waitUntil: 'domcontentloaded', timeout: 90000 } : { waitUntil: 'load', timeout: 60000 };
+                        await page.goto(config.url, waitOptions).catch(() => { });
                     }
 
                     if (db === 'jobins') {
@@ -423,6 +434,7 @@ app.post('/api/collect', async (req, res) => {
                             if (btn) btn.click();
                         });
                         await page.waitForTimeout(5000);
+                        await sendScreenshot(page, send);
                     }
 
                     try {
@@ -431,8 +443,10 @@ app.post('/api/collect', async (req, res) => {
                         let searchBox = await page.waitForSelector(searchSelector, { visible: true, timeout: 30000 }).catch(async () => {
                             send({ type: 'log', message: `${db}: 検索窓が見つかりません。リロードして再試行します...`, level: 'warning' });
                             await page.reload({ waitUntil: 'load' });
+                            await sendScreenshot(page, send);
                             return await page.waitForSelector(searchSelector, { visible: true, timeout: 20000 }).catch(() => null);
                         });
+                        await sendScreenshot(page, send);
 
                         if (db === 'jobins') {
                             try {
@@ -752,6 +766,7 @@ app.post('/api/collect', async (req, res) => {
 
                         await page.waitForTimeout(10000);
                         await page.waitForSelector('.jb-shadow, .jb-job-card, .feas_job_list_item, 求人ID, tr.grid, tbody tr', { timeout: 15000 }).catch(() => { });
+                        await sendScreenshot(page, send);
 
                     } catch (e) {
                         send({ type: 'log', message: `${db} 検索準備エラー: ${e.message}`, level: 'warning' });
@@ -951,6 +966,9 @@ const extractJobDetails = async (page, src) => {
 
             const reqH = findContent(['応募条件', '応募資格', '必須要件', '求める人物像', '対象となる方', '必須スキル']);
             data.requirements = extractValue(reqH);
+
+            const welcomeH = findContent(['歓迎要件', '歓迎資格', '歓迎スキル', 'あれば尚可', '望ましい経験', '歓迎条件']);
+            data.welcome_requirements = extractValue(welcomeH);
 
             const condH = findContent(['給与', '福利厚生', '待遇', '休日・休暇', '勤務時間', '諸手当']);
             data.conditions = extractValue(condH);
