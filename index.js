@@ -80,21 +80,20 @@ const SITE_CONFIGS = {
 
 let browserContext = null;
 
-const getPersistentContext = async (headless = true) => {
+const getPersistentContext = async (headlessArg = true) => {
+    // サーバー環境(Docker)では常に headless: true を強制する
+    const isHeadless = true;
+    console.log(`[Version 1.0.4] Launching browser context (Force Headless: ${isHeadless})`);
+
     const contextOptions = {
-        headless,
+        headless: isHeadless,
         viewport: { width: 1280, height: 800 },
-        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
-            '--disable-blink-features=AutomationControlled',
-            '--disable-infobars',
-            '--window-position=0,0',
-            '--ignore-certificate-errors',
-            '--ignore-certificate-errors-spki-list',
+            '--disable-gpu',
+            '--disable-dev-shm-usage',
         ],
-        ignoreDefaultArgs: ['--enable-automation']
     };
 
     if (browserContext) {
@@ -106,7 +105,13 @@ const getPersistentContext = async (headless = true) => {
     }
 
     if (!browserContext) {
-        browserContext = await chromium.launchPersistentContext(USER_DATA_DIR, contextOptions);
+        // Render環境での初回起動時の遅延を考慮
+        try {
+            browserContext = await chromium.launchPersistentContext(USER_DATA_DIR, contextOptions);
+        } catch (err) {
+            console.error('[Critical] Browser launch failed:', err.message);
+            throw err;
+        }
         browserContext.on('close', () => {
             browserContext = null;
         });
@@ -367,7 +372,7 @@ app.get('/api/open-browser', async (req, res) => {
     const config = SITE_CONFIGS[db];
     if (!config) return res.status(400).send('Invalid DB');
 
-    const context = await getPersistentContext(false);
+    const context = await getPersistentContext(true);
     const page = await context.newPage();
     await page.goto(config.url);
     res.send('Browser opened');
@@ -385,9 +390,11 @@ app.post('/api/collect', async (req, res) => {
     res.setHeader('Transfer-Encoding', 'chunked');
 
     const send = (data) => res.write(JSON.stringify(data) + '\n');
+    send({ type: 'log', message: '[System] Scraper Engine v1.0.4 Starting...', level: 'info' });
+    send({ type: 'log', message: '[System] Environment: Production (Docker/Xvfb)', level: 'info' });
 
     try {
-        const context = await getPersistentContext(false);
+        const context = await getPersistentContext(true);
 
         for (const db of databases) {
             const config = SITE_CONFIGS[db];
@@ -978,7 +985,7 @@ app.post('/api/download-pdf', async (req, res) => {
     const { url, source, title } = req.body;
     let page = null;
     try {
-        const context = await getPersistentContext();
+        const context = await getPersistentContext(true);
         page = await context.newPage();
 
         // ダウンロードイベントを待機
@@ -1047,5 +1054,5 @@ app.post('/api/download-pdf', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`[Version 1.0.4] Scraper service running on http://localhost:${PORT}`);
 });
