@@ -390,8 +390,8 @@ app.post('/api/collect', async (req, res) => {
     res.setHeader('Transfer-Encoding', 'chunked');
 
     const send = (data) => res.write(JSON.stringify(data) + '\n');
-    send({ type: 'log', message: '[System] Scraper Engine v1.0.4 Starting...', level: 'info' });
-    send({ type: 'log', message: '[System] Environment: Production (Docker/Xvfb)', level: 'info' });
+    send({ type: 'log', message: '[System] Scraper Engine v1.0.6 Starting...', level: 'info' });
+    send({ type: 'log', message: '[System] Environment: Production (Docker/0.0.0.0 Binding)', level: 'info' });
 
     try {
         const context = await getPersistentContext(true);
@@ -1053,6 +1053,6 @@ app.post('/api/download-pdf', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`[Version 1.0.4] Scraper service running on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[Version 1.0.6] Scraper service running on http://0.0.0.0:${PORT}`);
 });

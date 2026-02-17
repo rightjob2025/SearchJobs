@@ -10,7 +10,7 @@ RUN npm install
 # アプリケーションのソースコードをコピー
 COPY . .
 
-# 必要なシステムパッケージのインストール (xvfb)
+# 必要なシステムパッケージのインストール (念のためxvfbも入れておくが起動は速くする)
 RUN apt-get update && apt-get install -y xvfb && rm -rf /var/lib/apt/lists/*
 
 # 実行中のディレクトリ権限を確保
@@ -19,7 +19,8 @@ RUN mkdir -p /app/user_data && chmod -R 777 /app/user_data
 # 環境変数の設定
 ENV HEADLESS=true
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PORT=10000
 
 # スクレイパー起動
-# Renderの期待するポートスキャンに早く応答するため、xvfb-run のパラメータを調整
-CMD ["xvfb-run", "--auto-servernum", "node", "index.js"]
+# xvfb-runを使わずに最短で起動を試みる (headless: trueを強制しているため)
+CMD ["node", "index.js"]
