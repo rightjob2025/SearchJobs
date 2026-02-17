@@ -61,7 +61,7 @@ const SITE_CONFIGS = {
         }
     },
     jobins: {
-        url: 'https://jobins.jp/agent/login',
+        url: 'https://jobins.jp/agent/job/search_1',
         loginUrl: 'https://jobins.jp/agent/login',
         loginSelectors: {
             user: '#email',
@@ -88,6 +88,7 @@ const getPersistentContext = async (headlessArg = true) => {
     const contextOptions = {
         headless: isHeadless,
         viewport: { width: 1280, height: 800 },
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -421,9 +422,11 @@ app.post('/api/collect', async (req, res) => {
 
                     const pageUrl = page.url();
                     const configUrlObj = new URL(config.url);
-                    if (!pageUrl.includes(configUrlObj.hostname) || pageUrl.includes('login') || pageUrl.includes('wp-login')) {
+                    if (!pageUrl.includes(configUrlObj.hostname) || (pageUrl.includes('login') && !config.url.includes('login')) || pageUrl.includes('wp-login')) {
                         const waitOptions = db === 'jobins' ? { waitUntil: 'domcontentloaded', timeout: 90000 } : { waitUntil: 'load', timeout: 60000 };
-                        await page.goto(config.url, waitOptions).catch(() => { });
+                        await page.goto(config.url, waitOptions).catch((err) => {
+                            send({ type: 'log', message: `${db} 画面遷移警告: ${err.message}`, level: 'warning' });
+                        });
                     }
 
                     if (db === 'jobins') {
