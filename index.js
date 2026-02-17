@@ -89,11 +89,15 @@ const getPersistentContext = async (headlessArg = true) => {
         headless: isHeadless,
         viewport: { width: 1280, height: 800 },
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        locale: 'ja-JP',
+        timezoneId: 'Asia/Tokyo',
+        ignoreHTTPSErrors: true,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-gpu',
             '--disable-dev-shm-usage',
+            '--disable-blink-features=AutomationControlled',
         ],
     };
 
